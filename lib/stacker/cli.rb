@@ -2,6 +2,7 @@ require 'benchmark'
 require 'stacker'
 require 'thor'
 require 'yaml'
+require 'aws-sdk'
 
 module Stacker
   class Cli < Thor
@@ -36,10 +37,10 @@ module Stacker
 
     desc "show STACK_NAME", "Show details of a stack"
     def show stack_name
-      with_one_or_all stack_name do |stack|
+      (with_one_or_all (stack_name)).each do |stack|
         Stacker.logger.inspect(
           'Description'  => stack.description,
-          'Status'       => stack.status,
+          'Status'       => stack.stack_status,
           'Updated'      => stack.last_updated_time || stack.creation_time,
           'Capabilities' => stack.capabilities.remote,
           'Parameters'   => stack.parameters.remote,
@@ -50,62 +51,89 @@ module Stacker
 
     desc "status [STACK_NAME]", "Show stack status"
     def status stack_name = nil
-      with_one_or_all(stack_name) do |stack|
-        Stacker.logger.debug stack.status.indent
+      (with_one_or_all(stack_name)).each do |stack|
+        Stacker.logger.debug stack.stack_status.indent
       end
     end
 
     desc "diff [STACK_NAME]", "Show outstanding stack differences"
     def diff stack_name = nil
-      with_one_or_all(stack_name) do |stack|
+      (with_one_or_all(stack_name)).each do |stack|
         resolve stack
         next unless full_diff stack
       end
     end
 
     desc "update [STACK_NAME]", "Create or update stack"
-    def update stack_name = nil
-      with_one_or_all(stack_name) do |stack|
-        resolve stack
+    def update stack_name = nil	
+  	  Stacker.logger.info "[INFO] update method called in cli.rb for stack #{stack_name}"
+      (with_one_or_all(stack_name)).each do |stack|	    
 
-        if stack.exists?
-          next unless full_diff stack
+  		resolve stack		
+  		Stacker.logger.info "[INFO] resolve check completed in stack update"
+      #if stack.exists?
+  		begin
+  		a = stack.region.client.describe_stacks stack_name: stack.name
+  		rescue Aws::CloudFormation::Errors::ValidationError => err
+  			if err.message =~ /does not exist/
+  				Stacker.logger.info "[info] stack does not exist"
+  				time = Benchmark.realtime do
+  					stack.create
+  				end
+  				Stacker.logger.info formatted_time stack_name, 'created', time
+  				next
+  			else
+  			  raise Error.new err.message
+  			end
+		end
+		 		 
+		if (true)
+			Stacker.logger.info "[INFO] stack exist"
+			next unless full_diff stack
 
-          time = Benchmark.realtime do
-            stack.update allow_destructive: options['allow_destructive']
-          end
-          Stacker.logger.info formatted_time stack_name, 'updated', time
-        else
-          time = Benchmark.realtime do
-            stack.create
-          end
-          Stacker.logger.info formatted_time stack_name, 'created', time
-        end
-      end
+			time = Benchmark.realtime do
+			stack.update allow_destructive: options['allow_destructive']
+			end
+			Stacker.logger.info formatted_time stack_name, 'updated', time
+		else
+			Stacker.logger.info "[INFO] stack does not exist"
+			time = Benchmark.realtime do
+			stack.create
+			end
+			Stacker.logger.info formatted_time stack_name, 'created', time
+		end
+		end
     end
 
     desc "dump [STACK_NAME]", "Download stack template"
     def dump stack_name = nil
-      with_one_or_all(stack_name) do |stack|
-        if stack.exists?
-          diff = stack.template.diff :down, :color
-          next Stacker.logger.warn 'Stack up-to-date' if diff.length == 0
+      (with_one_or_all(stack_name)).each do |stack|
+		begin
+		
+			a = stack.region.client.describe_stacks stack_name: stack.name
+			rescue Aws::CloudFormation::Errors::ValidationError => err
+			if err.message =~ /does not exist/
+				Stacker.logger.info "[info] stack does not exist"
+			else
+			  raise Error.new err.message
+			end
+		end
+		
+		diff = stack.template.diff :down, :color
+		next Stacker.logger.warn 'Stack up-to-date' if diff.length == 0
 
-          Stacker.logger.debug "\n" + diff.indent
-          if yes? "Update local template with these changes (y/n)?"
-            stack.template.dump
-          else
-            Stacker.logger.warn 'Pull skipped'
-          end
-        else
-          Stacker.logger.warn "#{stack.name} does not exist"
-        end
+		Stacker.logger.debug "\n" + diff.indent
+		if yes? "Update local template with these changes (y/n)?"
+			stack.template.dump
+		else
+			Stacker.logger.warn 'Pull skipped'
+		end
       end
     end
 
     desc "fmt [STACK_NAME]", "Re-format template JSON"
     def fmt stack_name = nil
-      with_one_or_all(stack_name) do |stack|
+      (with_one_or_all(stack_name)).each do |stack|
         if stack.template.exists?
           Stacker.logger.warn 'Formatting...'
           stack.template.write
@@ -189,29 +217,35 @@ YAML
     end
 
     def with_one_or_all stack_name = nil, &block
-      yield_with_stack = proc do |stack|
-        Stacker.logger.info "#{stack.name}:"
-        yield stack
-        Stacker.logger.info ''
-      end
+  	  Stacker.logger.debug 'with_one_or_all called'
+      # yield_with_stack = proc do |stack|
+      #   Stacker.logger.info "with_one_or_all running for each stack #{stack.name}:"
+      #   yield stack
+      #   Stacker.logger.info ''
+      # end
+
+      stacks = Array.new
 
       if stack_name
-        yield_with_stack.call region.stack(stack_name)
+        stacks.push(region.GetStack(stack_name))
       else
-        region.stacks.each(&yield_with_stack)
+        Stacker.logger.info "with_one_or_all else statement"
+        stacks = region.stacks
       end
 
-    rescue Stacker::Stack::StackPolicyError => err
-      if options['allow_destructive']
+      return stacks
+
+      rescue Stacker::Stack::StackPolicyError => err
+        if options['allow_destructive']
+          Stacker.logger.fatal err.message
+        else
+          Stacker.logger.fatal 'Stack update policy prevents replacing or destroying resources.'
+          Stacker.logger.warn 'Try running again with \'--allow-destructive\''
+        end
+        exit 1
+      rescue Stacker::Stack::Error => err
         Stacker.logger.fatal err.message
-      else
-        Stacker.logger.fatal 'Stack update policy prevents replacing or destroying resources.'
-        Stacker.logger.warn 'Try running again with \'--allow-destructive\''
-      end
-      exit 1
-    rescue Stacker::Stack::Error => err
-      Stacker.logger.fatal err.message
-      exit 1
+        exit 1
     end
 
     def templates_path

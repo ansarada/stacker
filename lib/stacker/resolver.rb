@@ -16,11 +16,15 @@ module Stacker
     end
 
     def resolved
+	  puts "Resolver.resolved called"
+	  puts "parameters are #{parameters}"
       @resolved ||= Hash[parameters.map do |name, value|
         if value.is_a? Hash
-          stack = region.stack value.fetch('Stack')
+          stack = region.GetStack value.fetch('Stack')
           value = stack.outputs.fetch value.fetch('Output')
         end
+		retval = [ name, value ]
+		puts "Resolver.resolved finishing with #{retval}"
         [ name, value ]
       end]
     end
