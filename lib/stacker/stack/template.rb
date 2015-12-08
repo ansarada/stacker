@@ -27,10 +27,20 @@ module Stacker
           end
         end
       end
+	  
+	  def localStr
+        @localstr ||= begin
+          if exists?
+            templatestr = File.read path
+          else
+            {}
+          end
+        end
+      end
 
       def remote
-        @remote ||= JSON.parse client.template
-      rescue AWS::CloudFormation::Errors::ValidationError => err
+		@remote ||= JSON.parse (stack.region.client.get_template stack_name: client.stack_name).template_body
+      rescue AwS::CloudFormation::Errors::ValidationError => err
         if err.message =~ /does not exist/
           raise DoesNotExistError.new err.message
         else

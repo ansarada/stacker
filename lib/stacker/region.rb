@@ -7,6 +7,7 @@ module Stacker
     attr_reader :name, :defaults, :stacks, :templates_path
 
     def initialize(name, defaults, stacks, templates_path)
+	    Stacker.logger.info "region name is: #{name}"	
       @name = name
       @defaults = defaults
       @stacks = stacks.map do |options|
@@ -20,11 +21,13 @@ module Stacker
       @templates_path = templates_path
     end
 
-    def client
-      @client ||= AWS::CloudFormation.new region: name
+    def client  
+	  Aws.config[:ssl_verify_peer] = false
+    @client ||= Aws::CloudFormation::Client.new region: name, retry_limit: 6
+	  return @client
     end
 
-    def stack name
+    def GetStack name
       stacks.find { |s| s.name == name } || Stack.new(self, name)
     end
 

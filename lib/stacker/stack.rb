@@ -23,8 +23,8 @@ module Stacker
       creation_time
       description
       exists?
-      last_updated_time
-      status
+      last_updated_time   
+	  stack_status	
       status_reason
     ]
 
@@ -54,7 +54,8 @@ JSON
     end
 
     def client
-      @client ||= region.client.stacks[name]
+	  @client = (region.client.describe_stacks stack_name: name)[0]
+	  return @client[0]
     end
 
     delegate *CLIENT_METHODS, to: :client
@@ -76,18 +77,22 @@ JSON
       @capabilities ||= Capabilities.new self
     end
 
-    def outputs
-      @outputs ||= begin
-        return {} unless complete?
-        Hash[client.outputs.map { |output| [ output.key, output.value ] }]
-      end
+    def outputs  
+	  @outputs = Hash[client.outputs.map { |output| [ output.output_key, output.output_value ] }]  
+	  return @outputs
+      # leaving the following code block commented out for future improvements.
+      #@outputs ||= begin
+      #  return {} unless complete?
+	    #	puts "calling hash"
+      #  Hash[client.outputs.map { |output| [ output.output_key, output.output_value ] }]
+      #end
     end
 
     def create blocking = true
-      if exists?
-        Stacker.logger.warn 'Stack already exists'
-        return
-      end
+      # if exists?
+        # Stacker.logger.warn 'Stack already exists'
+        # return
+      # end
 
       if parameters.missing.any?
         raise MissingParameters.new(
@@ -96,11 +101,14 @@ JSON
       end
 
       Stacker.logger.info 'Creating stack'
-
-      region.client.stacks.create(
-        name,
-        template.local,
-        parameters: parameters.resolved,
+		
+	  hashParams = parameters.resolved.map { |key, value| {"parameter_key" => key, "parameter_value" => value} }
+	  
+	  
+      region.client.create_stack(
+        stack_name: name,
+        template_body: template.localStr,
+        parameters: hashParams,
         capabilities: capabilities.local,
         disable_rollback: true
       )
@@ -108,11 +116,12 @@ JSON
       sleep 90
 
       wait_while_status 'CREATE_IN_PROGRESS' if blocking
-    rescue AWS::CloudFormation::Errors::ValidationError => err
+    rescue Aws::CloudFormation::Errors::ValidationError => err
       raise Error.new err.message
     end
 
     def update options = {}
+	Stacker.logger.info 'update stack called'
       options.assert_valid_keys(:blocking, :allow_destructive)
 
       blocking = options.fetch(:blocking, true)
@@ -125,23 +134,26 @@ JSON
       end
 
       Stacker.logger.info 'Updating stack'
-
-      update_params = {
-        template: template.local,
-        parameters: parameters.resolved,
-        capabilities: capabilities.local
-      }
+	  
+	  hashParams = parameters.resolved.map { |key, value| {"parameter_key" => key, "parameter_value" => value} }
+	  
+	   update_params = {
+	     stack_name: name,
+         template_body: template.localStr,
+         parameters: hashParams,
+         capabilities: capabilities.local
+       }
 
       unless allow_destructive
         update_params[:stack_policy_during_update_body] = SAFE_UPDATE_POLICY
       end
 
-      client.update(update_params)
+	  region.client.update_stack(update_params)
 
       sleep 30
 
       wait_while_status 'UPDATE_IN_PROGRESS' if blocking
-    rescue AWS::CloudFormation::Errors::ValidationError => err
+    rescue Aws::CloudFormation::Errors::ValidationError => err
       case err.message
       when /does not exist/
         raise DoesNotExistError.new err.message
@@ -155,9 +167,9 @@ JSON
     private
 
     def report_status
-      case status
+      case stack_status
       when /_COMPLETE$/
-        Stacker.logger.info "#{name} Status => #{status}"
+        Stacker.logger.info "#{name} Status => #{stack_status}"
       when /ROLLBACK_IN_PROGRESS$/, /_FAILED$/
         failure_event = client.events.enum(limit: 30).find do |event|
           event.resource_status =~ /_FAILED$/
@@ -166,17 +178,17 @@ JSON
         if failure_reason =~ /stack policy/
           raise StackPolicyError.new failure_reason
         else
-          Stacker.logger.fatal "#{name} Status => #{status}"
+          Stacker.logger.fatal "#{name} Status => #{stack_status}"
           raise Error.new "Failure Reason: #{failure_reason}"
         end
       else
-        Stacker.logger.debug "#{name} Status => #{status}"
+        Stacker.logger.debug "#{name} Status => #{stack_status}"
       end
     end
 
-    def wait_while_status wait_status
-      while flush_cache(:status) && status == wait_status
-        report_status
+    def wait_while_status wait_status 
+      while flush_cache(:stack_status) && ((region.client.describe_stacks stack_name: name)[0])[0].stack_status == wait_status
+		report_status
         sleep 15
       end
       report_status
