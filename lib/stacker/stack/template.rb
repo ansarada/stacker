@@ -48,7 +48,7 @@ module Stacker
       memoize :diff
 
       def write value = local
-        File.write path, JSONFormatter.format(value)
+        File.write path, JSONFormatter.format_prety(value)
       end
 
       def dump
@@ -68,6 +68,23 @@ module Stacker
         STR = '\"[^\"]+\"'
 
         def self.format object
+          formatted = JSON.generate object
+
+          # put empty arrays on a single line
+          formatted.gsub! /: \[\s*\]/m, ': []'
+
+          # put { "Ref": ... } on a single line
+          formatted.gsub! /\{\s+\"Ref\"\:\s+(?<ref>#{STR})\s+\}/m,
+            '{ "Ref": \\k<ref> }'
+
+          # put { "Fn::GetAtt": ... } on a single line
+          formatted.gsub! /\{\s+\"Fn::GetAtt\"\: \[\s+(?<key>#{STR}),\s+(?<val>#{STR})\s+\]\s+\}/m,
+            '{ "Fn::GetAtt": [ \\k<key>, \\k<val> ] }'
+
+          formatted + "\n"
+        end
+
+        def self.format_prety object
           formatted = JSON.pretty_generate object
 
           # put empty arrays on a single line
