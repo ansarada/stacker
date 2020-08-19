@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = '>= 1.9.3'
 
-  s.add_dependency 'activesupport', '~> 4.0'
+  s.add_dependency 'activesupport', '~> 6.0'
   s.add_dependency 'aws-sdk', '~> 2'
   s.add_dependency 'coderay', '~> 1.1'
   s.add_dependency 'diffy', '~> 3.0'
