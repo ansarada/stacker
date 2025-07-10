@@ -17,6 +17,9 @@ module Stacker
     method_option :region, type: :string, default: default_region,
       banner: 'AWS region name'
 
+    method_option :region_config, type: :string, default: nil,
+                  banner: 'region config name - without .yml extension (in case you have multiple configs for the same region)'
+
     method_option :allow_destructive, type: :boolean, default: false,
       banner: 'allow destructive updates'
 
@@ -201,7 +204,7 @@ YAML
 
     def region
       @region ||= begin
-        config_path =  File.join working_path, 'regions', "#{options['region']}.yml"
+        config_path =  File.join working_path, 'regions', "#{options['region_config'] || options['region']}.yml"
         if File.exists? config_path
           begin
             config = YAML.load_file(config_path)
@@ -215,7 +218,7 @@ YAML
 
           Region.new options['region'], defaults, stacks, templates_path
         else
-          Stacker.logger.fatal "#{options['region']}.yml does not exist. Please configure or use stacker init"
+          Stacker.logger.fatal "#{options['region_config'] || options['region']}.yml does not exist. Please configure or use stacker init"
           exit 1
         end
       end
