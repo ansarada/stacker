@@ -11,8 +11,6 @@ Gem::Specification.new do |s|
   s.files       = Dir['lib/**/*']
   s.executables = Dir['bin/*'].map{ |f| File.basename(f) }
 
-  s.has_rdoc    = false
-
   s.authors     = ['Cotap, Inc.']
   s.email       = %w[martin@cotap.com evan@cotap.com]
   s.homepage    = 'https://github.com/cotap/stacker'
