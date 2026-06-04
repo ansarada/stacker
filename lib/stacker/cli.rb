@@ -216,6 +216,8 @@ YAML
           Region.new options['region'], defaults, stacks, templates_path
         else
           Stacker.logger.fatal "#{options['region']}.yml does not exist. Please configure or use stacker init"
+          Stacker.logger.fatal "Working directory: #{working_path}"
+          Stacker.logger.fatal "Expected region file: #{config_path}"
           exit 1
         end
       end
