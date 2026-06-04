@@ -19,6 +19,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency 'activesupport', '~> 7.0'
   s.add_dependency 'aws-sdk', '~> 3'
+  s.add_dependency 'rexml', '~> 3.0'
   s.add_dependency 'coderay', '~> 1.1'
   s.add_dependency 'diffy', '~> 3.0'
   s.add_dependency 'indentation', '~> 0.0'
