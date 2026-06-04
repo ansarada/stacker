@@ -17,10 +17,10 @@ module Stacker
         logger.formatter =  proc do |level, time, prog, msg|
           unless msg.start_with?("\e")
             msg = case level
-                  when 'FATAL' then ::Rainbow(msg).red
-                  when 'WARN'  then ::Rainbow(msg).yellow
-                  when 'INFO'  then ::Rainbow(msg).blue
-                  when 'DEBUG' then ::Rainbow(msg).hex('333333')
+                  when 'FATAL' then Rainbow::Presenter.new(msg).red
+                  when 'WARN'  then Rainbow::Presenter.new(msg).yellow
+                  when 'INFO'  then Rainbow::Presenter.new(msg).blue
+                  when 'DEBUG' then Rainbow::Presenter.new(msg).hex('333333')
                   else              msg
                   end
           end
