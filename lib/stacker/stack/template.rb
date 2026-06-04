@@ -13,7 +13,7 @@ module Stacker
       extend Memoist
 
       def exists?
-        File.exists? path
+        File.exist? path
       end
 
       def local
