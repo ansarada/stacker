@@ -20,7 +20,7 @@ module Stacker
                   when 'FATAL' then Rainbow::Presenter.new(msg).red
                   when 'WARN'  then Rainbow::Presenter.new(msg).yellow
                   when 'INFO'  then Rainbow::Presenter.new(msg).blue
-                  when 'DEBUG' then Rainbow::Presenter.new(msg).hex('333333')
+                  when 'DEBUG' then Rainbow::Presenter.new(msg).color('333333')
                   else              msg
                   end
           end
