@@ -22,8 +22,9 @@ Gem::Specification.new do |s|
   s.add_dependency 'rexml', '~> 3.0'
   s.add_dependency 'coderay', '~> 1.1'
   s.add_dependency 'diffy', '~> 3.0'
+  s.add_dependency 'diff-lcs', '~> 1.6'
   s.add_dependency 'indentation', '~> 0.0'
-  s.add_dependency 'memoist', '>= 0.16.2'
+  s.add_dependency 'memoist', '~> 0.16'
   s.add_dependency 'rainbow', '~> 3.0'
   s.add_dependency 'thor', '~> 1.0'
 
