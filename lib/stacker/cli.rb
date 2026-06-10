@@ -159,14 +159,14 @@ module Stacker
 
       %w[ regions templates ].each do |dir|
         directory_path = File.join project_path, dir
-        unless Dir.exists? directory_path
+        unless Dir.exist? directory_path
           Stacker.logger.debug "Creating directory at #{directory_path}"
           FileUtils.mkdir_p directory_path
         end
       end
 
       region_path = File.join project_path, 'regions', 'us-east-1.yml'
-      unless File.exists? region_path
+      unless File.exist? region_path
         Stacker.logger.debug "Creating region file at #{region_path}"
         File.open(region_path, 'w+') { |f| f.print <<-YAML }
 defaults:
@@ -202,9 +202,9 @@ YAML
     def region
       @region ||= begin
         config_path =  File.join working_path, 'regions', "#{options['region']}.yml"
-        if File.exists? config_path
+        if File.exist? config_path
           begin
-            config = YAML.load_file(config_path)
+            config = YAML.safe_load_file(config_path)
           rescue Psych::SyntaxError => err
             Stacker.logger.fatal err.message
             exit 1
@@ -216,6 +216,8 @@ YAML
           Region.new options['region'], defaults, stacks, templates_path
         else
           Stacker.logger.fatal "#{options['region']}.yml does not exist. Please configure or use stacker init"
+          Stacker.logger.fatal "Working directory: #{working_path}"
+          Stacker.logger.fatal "Expected region file: #{config_path}"
           exit 1
         end
       end

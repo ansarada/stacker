@@ -13,7 +13,7 @@ module Stacker
       extend Memoist
 
       def exists?
-        File.exists? path
+        File.exist? path
       end
 
       def local
@@ -23,6 +23,7 @@ module Stacker
             template['AWSTemplateFormatVersion'] ||= FORMAT_VERSION
             template
           else
+            Stacker.logger.warn "Template file not found: #{path}"
             {}
           end
         end
